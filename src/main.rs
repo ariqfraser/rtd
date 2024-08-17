@@ -2,7 +2,7 @@ mod magnet;
 mod torrent;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let path = "E:/Projects/_rust/rtdownloader/example_torrents/oshi.torrent";
+    let path = "E:/Projects/_rust/rtdownloader/example_torrents/shenbao-1895.torrent";
     match torrent::read_torrent(path) {
         Ok(t) => {
             torrent::render_torrent(&t);
