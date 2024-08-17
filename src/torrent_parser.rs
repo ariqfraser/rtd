@@ -4,7 +4,10 @@ use serde_bencode::{de, to_bytes};
 use serde_bytes::ByteBuf;
 use sha1::{Digest, Sha1};
 use std::{
-    collections::BTreeMap, fs::File, io::{self, Read}, path::Path
+    collections::BTreeMap,
+    fs::File,
+    io::{self, Read},
+    path::Path,
 };
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -13,15 +16,19 @@ struct Node(String, i64);
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct TorrentFile {
     path: Vec<String>,
-    crc32: String,
-    md5: String,
-    sha1: String,
-    mtime: String,
+    #[serde(default)]
+    crc32: Option<String>,
+    #[serde(default)]
+    md5: Option<String>,
+    #[serde(default)]
+    sha1: Option<String>,
+    #[serde(default)]
+    mtime: Option<String>,
     length: i64,
 }
 
 #[allow(dead_code)]
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone, Default)]
 pub struct Info {
     pub name: String,
     #[serde(default)]
@@ -48,7 +55,7 @@ pub struct Info {
 pub struct Torrent {
     pub info: Info,
     #[serde(default)]
-    announce: Option<String>,
+    pub announce: Option<String>,
     #[serde(default)]
     nodes: Option<Vec<Node>>,
     #[serde(default)]
@@ -57,7 +64,7 @@ pub struct Torrent {
     httpseeds: Option<Vec<String>>,
     #[serde(default)]
     #[serde(rename = "announce-list")]
-    announce_list: Option<Vec<Vec<String>>>,
+    pub announce_list: Option<Vec<Vec<String>>>,
     #[serde(default)]
     #[serde(rename = "creation date")]
     creation_date: Option<i64>,
@@ -106,7 +113,6 @@ pub fn render_torrent(torrent: &Torrent) {
             println!("url\t\t{:?}", url);
         }
     }
-
     println!("-------------------");
 }
 
@@ -144,26 +150,50 @@ pub fn calculate_info_hash(info: &Info) -> Result<[u8; 20], Box<dyn std::error::
 
     // Manually add fields that were present in the original Info struct
     bencode_map.insert("name".to_string(), BencodeValue::String(info.name.clone()));
-    bencode_map.insert("pieces".to_string(), BencodeValue::ByteBuf(info.pieces.clone()));
-    bencode_map.insert("piece length".to_string(), BencodeValue::Integer(info.piece_length));
+    bencode_map.insert(
+        "pieces".to_string(),
+        BencodeValue::ByteBuf(info.pieces.clone()),
+    );
+    bencode_map.insert(
+        "piece length".to_string(),
+        BencodeValue::Integer(info.piece_length),
+    );
 
     if let Some(length) = info.length {
         bencode_map.insert("length".to_string(), BencodeValue::Integer(length));
     }
 
     if let Some(files) = &info.files {
-        let files_list = files.iter().map(|f| {
-            let mut file_map = BTreeMap::new();
-            file_map.insert("crc32".to_string(), BencodeValue::String(f.crc32.clone()));
-            file_map.insert("md5".to_string(), BencodeValue::String(f.md5.clone()));
-            file_map.insert("sha1".to_string(), BencodeValue::String(f.sha1.clone()));
-            file_map.insert("mtime".to_string(), BencodeValue::String(f.mtime.clone()));
-            file_map.insert("length".to_string(), BencodeValue::Integer(f.length));
-            file_map.insert("path".to_string(), BencodeValue::List(
-                f.path.iter().map(|p| BencodeValue::String(p.clone())).collect()
-            ));
-            BencodeValue::Map(file_map)
-        }).collect();
+        let files_list = files
+            .iter()
+            .map(|f| {
+                let mut file_map = BTreeMap::new();
+                if let Some(crc32) = f.crc32.clone() {
+                    file_map.insert("crc32".to_string(), BencodeValue::String(crc32));
+                }
+                if let Some(md5) = f.md5.clone() {
+                    file_map.insert("md5".to_string(), BencodeValue::String(md5));
+                }
+                if let Some(sha1) = f.sha1.clone() {
+                    file_map.insert("sha1".to_string(), BencodeValue::String(sha1));
+                }
+                if let Some(mtime) = f.mtime.clone() {
+                    file_map.insert("mtime".to_string(), BencodeValue::String(mtime));
+                }
+
+                file_map.insert("length".to_string(), BencodeValue::Integer(f.length));
+                file_map.insert(
+                    "path".to_string(),
+                    BencodeValue::List(
+                        f.path
+                            .iter()
+                            .map(|p| BencodeValue::String(p.clone()))
+                            .collect(),
+                    ),
+                );
+                BencodeValue::Map(file_map)
+            })
+            .collect();
         bencode_map.insert("files".to_string(), BencodeValue::List(files_list));
     }
 
@@ -172,13 +202,21 @@ pub fn calculate_info_hash(info: &Info) -> Result<[u8; 20], Box<dyn std::error::
     }
 
     if let Some(path) = &info.path {
-        bencode_map.insert("path".to_string(), BencodeValue::List(
-            path.iter().map(|p| BencodeValue::String(p.clone())).collect()
-        ));
+        bencode_map.insert(
+            "path".to_string(),
+            BencodeValue::List(
+                path.iter()
+                    .map(|p| BencodeValue::String(p.clone()))
+                    .collect(),
+            ),
+        );
     }
 
     if let Some(root_hash) = &info.root_hash {
-        bencode_map.insert("root hash".to_string(), BencodeValue::String(root_hash.clone()));
+        bencode_map.insert(
+            "root hash".to_string(),
+            BencodeValue::String(root_hash.clone()),
+        );
     }
 
     if let Some(source) = &info.source {
@@ -186,9 +224,15 @@ pub fn calculate_info_hash(info: &Info) -> Result<[u8; 20], Box<dyn std::error::
     }
 
     if let Some(collections) = &info.collections {
-        bencode_map.insert("collections".to_string(), BencodeValue::List(
-            collections.iter().map(|c| BencodeValue::String(c.clone())).collect()
-        ));
+        bencode_map.insert(
+            "collections".to_string(),
+            BencodeValue::List(
+                collections
+                    .iter()
+                    .map(|c| BencodeValue::String(c.clone()))
+                    .collect(),
+            ),
+        );
     }
 
     // Serialize the BTreeMap into a Bencoded byte array
@@ -200,4 +244,19 @@ pub fn calculate_info_hash(info: &Info) -> Result<[u8; 20], Box<dyn std::error::
     let result = hasher.finalize();
 
     Ok(result.into())
+}
+
+pub fn info_bytes_to_string(bytes: &[u8; 20]) -> String {
+    hex::encode(bytes)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::BTreeMap;
+
+    #[test]
+    fn calculate_info_hash_set1() {
+        let expected_hash = "3cd8deb9c265e8aa4086ddd1704318b999163cc6";
+    }
 }

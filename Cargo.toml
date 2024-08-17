@@ -5,9 +5,17 @@ edition = "2021"
 
 [dependencies]
 hex = "0.4.3"
-#tokio = { version = "1.39.2", features = ["full"] }
+rand = "0.8.5"
+tokio = { version = "1.39.2", features = ["full"] }
 serde = { version = "1", features = ["derive"] }
 serde_bencode = "0.2.4"
 serde_bytes = "0.11.15"
 serde_derive = "1.0.208"
 sha-1 = "0.10.1"
+url = "2.5.2"
+byteorder = "1.5.0"
+reqwest = { version = "0.12.5", features = ["json"]} 
+mainline = "2.0.1"
+tracing = "0.1.40"
+flume = { version = "0.11.0", features = [], default-features = false}
+tracing-subscriber = "0.3.18"
