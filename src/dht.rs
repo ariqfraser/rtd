@@ -27,5 +27,6 @@ pub fn find_peers(dht_client: &Dht, info_hash: Id) -> Vec<SocketAddr> {
         peers.len(),
         start.elapsed().as_millis()
     );
+
     peers
 }
